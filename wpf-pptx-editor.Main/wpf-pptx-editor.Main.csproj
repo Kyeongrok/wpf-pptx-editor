@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>wpf_pptx_editor.Main</RootNamespace>
+        <AssemblyName>wpf_pptx_editor.Main</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\wpf-pptx-editor.Support\wpf-pptx-editor.Support.csproj" />
+    </ItemGroup>
+</Project>

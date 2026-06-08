@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>wpf_pptx_editor.Forms</RootNamespace>
+        <AssemblyName>wpf_pptx_editor.Forms</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\wpf-pptx-editor.Main\wpf-pptx-editor.Main.csproj" />
+        <ProjectReference Include="..\wpf-pptx-editor.Support\wpf-pptx-editor.Support.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DocumentFormat.OpenXml" Version="3.*" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.*" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.*" />
+    </ItemGroup>
+</Project>
