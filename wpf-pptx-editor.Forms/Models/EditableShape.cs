@@ -28,6 +28,14 @@ public partial class EditableShape : ObservableObject
     [ObservableProperty] private bool _flipH; // 오른쪽→왼쪽
     [ObservableProperty] private bool _flipV; // 아래→위
 
+    // 연결선 (Line 전용): 시작/끝점에 연결된 도형 ID + 앵커 (0.0~1.0 상대좌표)
+    public Guid? StartConnectedShapeId { get; set; }
+    public Guid? EndConnectedShapeId   { get; set; }
+    public double StartConnectedAnchorX { get; set; } = 0.5;
+    public double StartConnectedAnchorY { get; set; } = 0.5;
+    public double EndConnectedAnchorX   { get; set; } = 0.5;
+    public double EndConnectedAnchorY   { get; set; } = 0.5;
+
     public static EditableShape FromShapeInfo(ShapeInfo s) => new()
     {
         X = s.X, Y = s.Y, Width = s.Width, Height = s.Height,

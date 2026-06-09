@@ -29,6 +29,8 @@ public class App : Application
         AppServices.Current = _host.Services;
 
         var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
+        mainWindow.Icon = new System.Windows.Media.Imaging.BitmapImage(
+            new Uri("pack://application:,,,/wpf_pptx_editor;component/app.ico"));
         mainWindow.Show();
     }
 

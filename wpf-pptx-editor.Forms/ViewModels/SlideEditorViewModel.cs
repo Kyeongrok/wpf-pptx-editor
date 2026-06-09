@@ -35,7 +35,9 @@ public partial class SlideEditorViewModel : ObservableObject
 
     [ObservableProperty] private ObservableCollection<EditableShape> _shapes = new();
     [ObservableProperty] private EditableShape? _selectedShape;
-    [ObservableProperty] private DrawingTool _currentTool = DrawingTool.Select;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanvasCursor))]
+    private DrawingTool _currentTool = DrawingTool.Select;
     [ObservableProperty] private double _slideWidth = 960;
     [ObservableProperty] private double _slideHeight = 540;
 
@@ -174,7 +176,10 @@ public partial class SlideEditorViewModel : ObservableObject
     }
 
     // 선 추가 (시작점/끝점 기반)
-    public void AddLine(double x1, double y1, double x2, double y2)
+    public void AddLine(double x1, double y1, double x2, double y2,
+                        Guid? startShapeId = null, Guid? endShapeId = null,
+                        double startAnchorX = 0.5, double startAnchorY = 0.5,
+                        double endAnchorX   = 0.5, double endAnchorY   = 0.5)
     {
         double x = Math.Min(x1, x2), y = Math.Min(y1, y2);
         double w = Math.Abs(x2 - x1), h = Math.Abs(y2 - y1);
@@ -188,13 +193,65 @@ public partial class SlideEditorViewModel : ObservableObject
             FlipV = y1 > y2,
             FillColor = Colors.Transparent,
             StrokeColor = StrokeColor,
-            StrokeWidthPt = StrokeWidthPt
+            StrokeWidthPt = StrokeWidthPt,
+            StartConnectedShapeId = startShapeId,
+            EndConnectedShapeId   = endShapeId,
+            StartConnectedAnchorX = startAnchorX,
+            StartConnectedAnchorY = startAnchorY,
+            EndConnectedAnchorX   = endAnchorX,
+            EndConnectedAnchorY   = endAnchorY
         };
 
         Shapes.Add(shape);
         PushUndo(new AddShapeAction(Shapes, shape));
         SelectedShape = shape;
         CurrentTool = DrawingTool.Select;
+    }
+
+    // 연결된 선의 끝점을 이동된 도형 중심에 맞게 업데이트
+    public void UpdateConnectedLines(EditableShape movedShape)
+    {
+        double cx = movedShape.X + movedShape.Width / 2;
+        double cy = movedShape.Y + movedShape.Height / 2;
+
+        foreach (var line in Shapes.Where(s => s.Kind == ShapeKind.Line))
+        {
+            bool startConn = line.StartConnectedShapeId == movedShape.Id;
+            bool endConn   = line.EndConnectedShapeId   == movedShape.Id;
+            if (!startConn && !endConn) continue;
+
+            var (sx, sy, ex, ey) = GetLinePoints(line);
+            if (startConn)
+            {
+                sx = movedShape.X + line.StartConnectedAnchorX * movedShape.Width;
+                sy = movedShape.Y + line.StartConnectedAnchorY * movedShape.Height;
+            }
+            if (endConn)
+            {
+                ex = movedShape.X + line.EndConnectedAnchorX * movedShape.Width;
+                ey = movedShape.Y + line.EndConnectedAnchorY * movedShape.Height;
+            }
+            SetLineFromPoints(line, sx, sy, ex, ey);
+        }
+    }
+
+    private static (double x1, double y1, double x2, double y2) GetLinePoints(EditableShape line)
+    {
+        double x1 = line.FlipH ? line.X + line.Width  : line.X;
+        double y1 = line.FlipV ? line.Y + line.Height : line.Y;
+        double x2 = line.FlipH ? line.X               : line.X + line.Width;
+        double y2 = line.FlipV ? line.Y               : line.Y + line.Height;
+        return (x1, y1, x2, y2);
+    }
+
+    private static void SetLineFromPoints(EditableShape line, double x1, double y1, double x2, double y2)
+    {
+        double x = Math.Min(x1, x2), y = Math.Min(y1, y2);
+        line.X = x; line.Y = y;
+        line.Width  = Math.Max(Math.Abs(x2 - x1), 2);
+        line.Height = Math.Max(Math.Abs(y2 - y1), 2);
+        line.FlipH  = x1 > x2;
+        line.FlipV  = y1 > y2;
     }
 
     // 이동 완료 시 캔버스에서 호출

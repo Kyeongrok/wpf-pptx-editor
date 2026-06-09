@@ -98,7 +98,11 @@ public class PptxWriter
                     new P.NonVisualDrawingProperties { Id = 1, Name = "" },
                     new P.NonVisualGroupShapeDrawingProperties(),
                     new P.ApplicationNonVisualDrawingProperties()),
-                new P.GroupShapeProperties(new A.TransformGroup()))),
+                new P.GroupShapeProperties(new A.TransformGroup(
+                    new A.Offset { X = 0, Y = 0 },
+                    new A.Extents { Cx = 0, Cy = 0 },
+                    new A.ChildOffset { X = 0, Y = 0 },
+                    new A.ChildExtents { Cx = 0, Cy = 0 })))),
             new P.ColorMapOverride(new A.MasterColorMapping()));
         slidePart.AddPart(layoutPart);
 
@@ -110,13 +114,17 @@ public class PptxWriter
         slidePart.Slide.Save();
     }
 
-    private static P.Shape BuildShape(EditableShape s, uint id)
+    private static OpenXmlElement BuildShape(EditableShape s, uint id)
     {
         long x  = (long)(s.X * DipToEmu);
         long y  = (long)(s.Y * DipToEmu);
         long cx = (long)(s.Width * DipToEmu);
         long cy = (long)(s.Height * DipToEmu);
         int  sw = (int)(s.StrokeWidthPt * 12700);
+        bool isLine = s.Kind == ShapeKind.Line;
+
+        if (isLine)
+            return BuildConnectionShape(s, id, x, y, cx, cy, sw);
 
         string prst = s.Kind switch
         {
@@ -127,16 +135,24 @@ public class PptxWriter
             _                   => "rect"
         };
 
-        var spPr = new P.ShapeProperties(
-            new A.Transform2D(
-                new A.Offset { X = x, Y = y },
-                new A.Extents { Cx = cx, Cy = cy }),
-            new A.PresetGeometry(new A.AdjustValueList()) { Preset = new A.ShapeTypeValues(prst) },
-            new A.SolidFill(new A.RgbColorModelHex { Val = ToHex(s.FillColor) }),
-            new A.Outline(new A.SolidFill(new A.RgbColorModelHex { Val = ToHex(s.StrokeColor) }))
-            { Width = Math.Max(sw, 1) });
+        var xfrm = new A.Transform2D(
+            new A.Offset { X = x, Y = y },
+            new A.Extents { Cx = cx, Cy = cy });
+        if (s.FlipH) xfrm.HorizontalFlip = true;
+        if (s.FlipV) xfrm.VerticalFlip = true;
 
-        var txBody = BuildTextBody(s);
+        var outlineEl = new A.Outline(
+            new A.SolidFill(new A.RgbColorModelHex { Val = ToHex(s.StrokeColor) }))
+            { Width = Math.Max(sw, 1) };
+
+        OpenXmlElement fillEl = s.FillColor.A == 0
+            ? (OpenXmlElement)new A.NoFill()
+            : new A.SolidFill(new A.RgbColorModelHex { Val = ToHex(s.FillColor) });
+        var spPr = new P.ShapeProperties(
+            xfrm,
+            new A.PresetGeometry(new A.AdjustValueList()) { Preset = new A.ShapeTypeValues(prst) },
+            fillEl,
+            outlineEl);
 
         return new P.Shape(
             new P.NonVisualShapeProperties(
@@ -144,8 +160,52 @@ public class PptxWriter
                 new P.NonVisualShapeDrawingProperties(new A.ShapeLocks { NoGrouping = true }),
                 new P.ApplicationNonVisualDrawingProperties()),
             spPr,
-            txBody);
+            BuildTextBody(s));
     }
+
+    private static P.ConnectionShape BuildConnectionShape(EditableShape s, uint id,
+        long x, long y, long cx, long cy, int sw)
+    {
+        var xfrm = new A.Transform2D(
+            new A.Offset { X = x, Y = y },
+            new A.Extents { Cx = cx, Cy = cy });
+        if (s.FlipH) xfrm.HorizontalFlip = true;
+        if (s.FlipV) xfrm.VerticalFlip = true;
+
+        var ln = new A.Outline(
+            new A.SolidFill(new A.RgbColorModelHex { Val = ToHex(s.StrokeColor) }),
+            new A.PresetDash { Val = A.PresetLineDashValues.Solid },
+            new A.Round(),
+            new A.HeadEnd { Type = A.LineEndValues.None, Width = A.LineEndWidthValues.Medium, Length = A.LineEndLengthValues.Medium },
+            new A.TailEnd { Type = A.LineEndValues.None, Width = A.LineEndWidthValues.Medium, Length = A.LineEndLengthValues.Medium })
+        {
+            Width = Math.Max(sw, 1),
+            CapType = A.LineCapValues.Flat,
+            CompoundLineType = A.CompoundLineValues.Single
+        };
+
+        var spPr = new P.ShapeProperties(
+            xfrm,
+            new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.StraightConnector1 },
+            new A.NoFill(),
+            ln);
+
+        return new P.ConnectionShape(
+            new P.NonVisualConnectionShapeProperties(
+                new P.NonVisualDrawingProperties { Id = id, Name = $"Connector {id}" },
+                new P.NonVisualConnectorShapeDrawingProperties(),
+                new P.ApplicationNonVisualDrawingProperties()),
+            spPr);
+    }
+
+    // (kept for forward-compat reference — no longer used)
+    private static P.ShapeStyle BuildLineStyle() =>
+        new P.ShapeStyle(
+            new A.LineReference(new A.SchemeColor { Val = A.SchemeColorValues.Accent1 }) { Index = 1U },
+            new A.FillReference(new A.SchemeColor { Val = A.SchemeColorValues.Accent1 }) { Index = 0U },
+            new A.EffectReference(new A.SchemeColor { Val = A.SchemeColorValues.Accent1 }) { Index = 0U },
+            new A.FontReference(new A.SchemeColor { Val = A.SchemeColorValues.Dark1 })
+                { Index = A.FontCollectionIndexValues.Minor });
 
     private static P.TextBody BuildTextBody(EditableShape s)
     {
@@ -203,8 +263,16 @@ public class PptxWriter
                     new A.FollowedHyperlinkColor(new A.RgbColorModelHex { Val = "954F72" }))
                 { Name = "Office" },
                 new A.FontScheme(
-                    new A.MajorFont(new A.SupplementalFont { Script = "Hang", Typeface = "맑은 고딕" }),
-                    new A.MinorFont(new A.SupplementalFont { Script = "Hang", Typeface = "맑은 고딕" }))
+                    new A.MajorFont(
+                        new A.LatinFont { Typeface = "+mj-lt" },
+                        new A.EastAsianFont { Typeface = "+mj-ea" },
+                        new A.ComplexScriptFont { Typeface = "+mj-cs" },
+                        new A.SupplementalFont { Script = "Hang", Typeface = "맑은 고딕" }),
+                    new A.MinorFont(
+                        new A.LatinFont { Typeface = "+mn-lt" },
+                        new A.EastAsianFont { Typeface = "+mn-ea" },
+                        new A.ComplexScriptFont { Typeface = "+mn-cs" },
+                        new A.SupplementalFont { Script = "Hang", Typeface = "맑은 고딕" }))
                 { Name = "Office" },
                 new A.FormatScheme(
                     new A.FillStyleList(
@@ -228,13 +296,20 @@ public class PptxWriter
 
     private static P.SlideMaster BuildMinimalSlideMaster()
     {
+        var defRPr = () => new A.DefaultRunProperties { Language = "ko-KR" };
+        var lvl1 = () => new A.Level1ParagraphProperties(defRPr());
+
         return new P.SlideMaster(
             new P.CommonSlideData(new P.ShapeTree(
                 new P.NonVisualGroupShapeProperties(
                     new P.NonVisualDrawingProperties { Id = 1, Name = "" },
                     new P.NonVisualGroupShapeDrawingProperties(),
                     new P.ApplicationNonVisualDrawingProperties()),
-                new P.GroupShapeProperties(new A.TransformGroup()))),
+                new P.GroupShapeProperties(new A.TransformGroup(
+                    new A.Offset { X = 0, Y = 0 },
+                    new A.Extents { Cx = 0, Cy = 0 },
+                    new A.ChildOffset { X = 0, Y = 0 },
+                    new A.ChildExtents { Cx = 0, Cy = 0 })))),
             new P.ColorMap
             {
                 Background1 = new A.ColorSchemeIndexValues("lt1"),
@@ -249,7 +324,11 @@ public class PptxWriter
                 Accent6 = new A.ColorSchemeIndexValues("accent6"),
                 Hyperlink = new A.ColorSchemeIndexValues("hlink"),
                 FollowedHyperlink = new A.ColorSchemeIndexValues("folHlink")
-            });
+            },
+            new P.TextStyles(
+                new P.TitleStyle(lvl1()),
+                new P.BodyStyle(lvl1()),
+                new P.OtherStyle(lvl1())));
     }
 
     private static P.SlideLayout BuildMinimalSlideLayout()
@@ -260,7 +339,11 @@ public class PptxWriter
                     new P.NonVisualDrawingProperties { Id = 1, Name = "" },
                     new P.NonVisualGroupShapeDrawingProperties(),
                     new P.ApplicationNonVisualDrawingProperties()),
-                new P.GroupShapeProperties(new A.TransformGroup()))),
+                new P.GroupShapeProperties(new A.TransformGroup(
+                    new A.Offset { X = 0, Y = 0 },
+                    new A.Extents { Cx = 0, Cy = 0 },
+                    new A.ChildOffset { X = 0, Y = 0 },
+                    new A.ChildExtents { Cx = 0, Cy = 0 })))),
             new P.ColorMapOverride(new A.MasterColorMapping()))
         { Type = new P.SlideLayoutValues("blank"), Preserve = true };
     }

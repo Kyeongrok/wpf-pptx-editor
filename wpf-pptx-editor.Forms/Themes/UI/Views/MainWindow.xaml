@@ -7,6 +7,7 @@
     xmlns:views="clr-namespace:wpf_pptx_editor.Forms.UI.Views">
 
     <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    <converters:ActiveToolConverter x:Key="ActiveToolConverter" />
 
     <!--  공통 툴바 버튼 스타일  -->
     <Style x:Key="ToolBtn" TargetType="Button">
@@ -36,6 +37,16 @@
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Background" Value="#505050" />
             </Trigger>
+            <DataTrigger Value="True">
+                <DataTrigger.Binding>
+                    <MultiBinding Converter="{StaticResource ActiveToolConverter}">
+                        <Binding Path="Editor.CurrentTool" />
+                        <Binding Path="CommandParameter" RelativeSource="{RelativeSource Self}" />
+                    </MultiBinding>
+                </DataTrigger.Binding>
+                <Setter Property="Background" Value="#0078D4" />
+                <Setter Property="Foreground" Value="White" />
+            </DataTrigger>
         </Style.Triggers>
     </Style>
 
@@ -93,6 +104,7 @@
                                         Background="Transparent"
                                         BorderThickness="0"
                                         Content="─"
+                                        Cursor="Hand"
                                         FontSize="14"
                                         Foreground="#CCCCCC"
                                         WindowChrome.IsHitTestVisibleInChrome="True">
@@ -122,6 +134,7 @@
                                         Background="Transparent"
                                         BorderThickness="0"
                                         Content="⬜"
+                                        Cursor="Hand"
                                         FontSize="11"
                                         Foreground="#CCCCCC"
                                         WindowChrome.IsHitTestVisibleInChrome="True">
@@ -151,6 +164,7 @@
                                         Background="Transparent"
                                         BorderThickness="0"
                                         Content="✕"
+                                        Cursor="Hand"
                                         FontSize="14"
                                         Foreground="#CCCCCC"
                                         WindowChrome.IsHitTestVisibleInChrome="True">
@@ -357,7 +371,7 @@
 
                                 <!--  편집 캔버스  -->
                                 <Grid Grid.Column="2">
-                                    <controls:SlideEditorControl DataContext="{Binding Editor}" />
+                                    <controls:SlideEditorControl x:Name="PART_SlideEditor" DataContext="{Binding Editor}" />
                                     <Border Background="#A0000000" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock
@@ -537,7 +551,7 @@
                                     VerticalAlignment="Center"
                                     FontSize="11"
                                     Foreground="White"
-                                    Text="{Binding Editor.CurrentTool, StringFormat='도구: {0}'}" />
+                                    Text="{Binding StatusMessage}" />
                             </Border>
                         </Grid>
                     </Border>

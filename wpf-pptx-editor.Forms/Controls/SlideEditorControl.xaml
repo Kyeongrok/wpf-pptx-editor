@@ -40,6 +40,12 @@
                         Width="960"
                         Height="540"
                         IsHitTestVisible="False" />
+                    <!--  텍스트 편집 오버레이  -->
+                    <Canvas
+                        x:Name="TextEditCanvas"
+                        Width="960"
+                        Height="540"
+                        IsHitTestVisible="False" />
                 </Grid>
             </Border>
         </Viewbox>

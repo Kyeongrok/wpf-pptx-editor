@@ -15,11 +15,22 @@ public class MainWindow : wpf_pptx_editorWindow
             new FrameworkPropertyMetadata(typeof(MainWindow)));
     }
 
+    private SlideEditorControl? _editorControl;
+
     public MainWindow(MainWindowViewModel viewModel)
     {
         DataContext = viewModel;
         KeyDown += (_, e) =>
         {
+            if (e.Key == System.Windows.Input.Key.F2)
+            {
+                _editorControl?.EnterTextEditMode();
+                e.Handled = true;
+                return;
+            }
+
+            if (_editorControl?.IsTextEditing == true) return;
+
             if (e.Key == System.Windows.Input.Key.Delete)
                 viewModel.Editor.DeleteSelectedCommand.Execute(null);
 
@@ -36,6 +47,8 @@ public class MainWindow : wpf_pptx_editorWindow
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+
+        _editorControl = GetTemplateChild("PART_SlideEditor") as SlideEditorControl;
 
         Wire("PART_MinimizeButton", () => WindowState = WindowState.Minimized);
         Wire("PART_MaximizeButton", () =>

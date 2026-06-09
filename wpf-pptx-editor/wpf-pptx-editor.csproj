@@ -7,7 +7,12 @@
         <UseWPF>true</UseWPF>
         <RootNamespace>wpf_pptx_editor</RootNamespace>
         <AssemblyName>wpf_pptx_editor</AssemblyName>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     </PropertyGroup>
+
+    <ItemGroup>
+        <Resource Include="app.ico" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />

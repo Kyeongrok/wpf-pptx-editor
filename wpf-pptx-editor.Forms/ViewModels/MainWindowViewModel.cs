@@ -23,10 +23,21 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _windowTitle = "PPTX Editor";
     [ObservableProperty] private SlideEditorViewModel _editor = new();
+    [ObservableProperty] private string _statusMessage = "준비";
 
     public MainWindowViewModel(IPptxService pptxService)
     {
         _pptxService = pptxService;
+        InitializeEmptyPresentation();
+    }
+
+    private void InitializeEmptyPresentation()
+    {
+        Slides.Clear();
+        Editor.LoadFromSlideInfo(new SlideInfo(960, 540, Array.Empty<ShapeInfo>()));
+        _currentSlideIndex = 0;
+        Slides.Add(new SlideItemViewModel(1, null));
+        SelectedSlide = Slides[0];
     }
 
     // ── 파일 열기 ────────────────────────────────────────────────────────────
@@ -67,32 +78,9 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void NewFile()
     {
-        var dlg = new SaveFileDialog
-        {
-            Filter = "PowerPoint Files|*.pptx",
-            Title = "새 PPTX 파일 만들기",
-            FileName = "새 프레젠테이션.pptx"
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        try
-        {
-            _writer.CreateNew(dlg.FileName);
-            _currentFilePath = dlg.FileName;
-            WindowTitle = $"PPTX Editor - {Path.GetFileName(_currentFilePath)}";
-
-            Slides.Clear();
-            Editor.LoadFromSlideInfo(new SlideInfo(960, 540, Array.Empty<ShapeInfo>()));
-            _currentSlideIndex = 0;
-
-            Slides.Add(new SlideItemViewModel(1, null));
-            SelectedSlide = Slides[0];
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"파일 생성 실패:\n{ex.Message}", "오류",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        _currentFilePath = "";
+        WindowTitle = "PPTX Editor";
+        InitializeEmptyPresentation();
     }
 
     // ── 저장 ─────────────────────────────────────────────────────────────────
@@ -140,7 +128,8 @@ public partial class MainWindowViewModel : ObservableObject
 
             // 썸네일 갱신
             RefreshCurrentThumbnail();
-            MessageBox.Show("저장 완료!", "저장", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusMessage = $"저장 완료  {Path.GetFileName(path)}";
+            _ = ClearStatusAfterDelayAsync();
         }
         catch (Exception ex)
         {
@@ -155,10 +144,11 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task AddSlideAsync()
     {
-        if (string.IsNullOrEmpty(_currentFilePath)) return;
         try
         {
-            await Task.Run(() => _writer.AddSlide(_currentFilePath));
+            if (!string.IsNullOrEmpty(_currentFilePath))
+                await Task.Run(() => _writer.AddSlide(_currentFilePath));
+
             int newIndex = Slides.Count;
             Slides.Add(new SlideItemViewModel(newIndex + 1, null));
             SelectedSlide = Slides[newIndex];
@@ -194,7 +184,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task LoadSlideForEditAsync(int slideIndex)
     {
-        if (string.IsNullOrEmpty(_currentFilePath)) return;
+        if (string.IsNullOrEmpty(_currentFilePath))
+        {
+            Editor.LoadFromSlideInfo(new SlideInfo(960, 540, Array.Empty<ShapeInfo>()));
+            return;
+        }
         IsLoading = true;
         try
         {
@@ -207,6 +201,12 @@ public partial class MainWindowViewModel : ObservableObject
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally { IsLoading = false; }
+    }
+
+    private async Task ClearStatusAfterDelayAsync()
+    {
+        await Task.Delay(3000);
+        StatusMessage = "준비";
     }
 
     // ── 썸네일 갱신 ──────────────────────────────────────────────────────────
